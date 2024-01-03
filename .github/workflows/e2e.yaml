@@ -39,6 +39,14 @@ on:
         default: "1.30"
       cluster_name:
         type: string
+        required: false
+      eks_endpoint:
+        type: string
+        required: false
+      redact_cluster_details:
+        type: boolean
+        default: false
+        required: false
       cleanup:
         type: boolean
         required: true
@@ -74,6 +82,12 @@ on:
       cluster_name:
         type: string
         description: If cluster_name is empty, a new cluster will be created. Otherwise, tests will run on an existing cluster
+      eks_endpoint:
+        type: string
+      redact_cluster_details:
+        type: boolean
+        required: false
+        default: false
     secrets:
       SLACK_WEBHOOK_URL:
         required: false
@@ -87,6 +101,19 @@ jobs:
     name: suite-${{ inputs.suite }}
     runs-on: ubuntu-latest
     steps:
+      - name: redact cluster details
+        if: inputs.redact_cluster_details == true
+        run: |
+          # Using add-mask directly on the GHA input results in the secret being printed to logs
+          # https://github.com/actions/runner/issues/643
+          CLUSTER_NAME="$(jq -r '.inputs.cluster_name' $GITHUB_EVENT_PATH)"
+          EKS_ENDPOINT="$(jq -r '.inputs.eks_endpoint' $GITHUB_EVENT_PATH)"
+          details=("$CLUSTER_NAME" "$EKS_ENDPOINT")
+          for detail in ${details[@]}; do
+            if [[ ! -z $detail ]]; then
+              echo "::add-mask::$detail"
+            fi
+          done
       - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
         with:
           ref: ${{ inputs.git_ref }}
@@ -102,10 +129,6 @@ jobs:
           role-to-assume: arn:aws:iam::${{ vars.CI_ACCOUNT_ID }}:role/${{ vars.CI_ROLE_NAME }}
           aws-region: ${{ inputs.region }}
           role-duration-seconds: 21600
-      - name: add jitter on cluster setup
-        run: |
-          # Creating jitter so that we can stagger cluster creation to avoid throttling
-          sleep $(( RANDOM % 300 + 1 ))
       - id: generate-cluster-name
         name: generate cluster name
         env:
@@ -119,12 +142,17 @@ jobs:
             else
               CLUSTER_NAME=$(echo "$SUITE-$RANDOM$RANDOM" | awk '{print tolower($0)}' | tr / -)
             fi
+            echo "Using cluster name \"$CLUSTER_NAME\""
           fi
-          echo "Using cluster name \"$CLUSTER_NAME\""
           echo CLUSTER_NAME="$CLUSTER_NAME" >> "$GITHUB_OUTPUT"
-      - name: setup eks cluster '${{ steps.generate-cluster-name.outputs.CLUSTER_NAME }}'
+      - name: add jitter on cluster setup
         if: inputs.cluster_name == ''
+        run: |
+          # Creating jitter so that we can stagger cluster creation to avoid throttling
+          sleep $(( RANDOM % 300 + 1 ))
+      - name: setup eks cluster '${{ steps.generate-cluster-name.outputs.CLUSTER_NAME }}'
         uses: ./.github/actions/e2e/setup-cluster
+        if: ${{ inputs.cluster_name == '' }}
         with:
           account_id: ${{ vars.CI_ACCOUNT_ID }}
           role: ${{ vars.CI_ROLE_NAME }}
@@ -162,21 +190,50 @@ jobs:
           cleanup: ${{ inputs.cleanup }}
           codebuild_sg: ${{ vars[format('{0}_CODEBUILD_SG', inputs.codebuild_region)] }}
           codebuild_vpc: ${{ vars[format('{0}_CODEBUILD_VPC', inputs.codebuild_region)] }}
+      - name: get cluster endpoint
+        id: get-cluster-endpoint
+        env:
+          EKS_ENDPOINT: ${{ inputs.eks_endpoint }}
+          CLUSTER_NAME: ${{ steps.generate-cluster-name.outputs.CLUSTER_NAME }}
+          REDACT_CLUSTER_DETAILS: ${{ inputs.redact_cluster_details }}
+        run: |
+          if [[ -z $EKS_ENDPOINT ]]; then
+            CLUSTER_ENDPOINT=$(aws eks describe-cluster --name $CLUSTER_NAME --query "cluster.endpoint" --output text)
+          else
+            CLUSTER_ENDPOINT=$(aws eks describe-cluster --name $CLUSTER_NAME --query "cluster.endpoint" --endpoint $EKS_ENDPOINT --output text)
+          fi
+          if [[ "$REDACT_CLUSTER_DETAILS" == "true" ]]; then
+            echo "::add-mask::$CLUSTER_ENDPOINT"
+          fi
+          echo CLUSTER_ENDPOINT="$CLUSTER_ENDPOINT" >> "$GITHUB_OUTPUT"
       - name: run the ${{ inputs.suite }} test suite
         if: ${{ inputs.workflow_trigger != 'private_cluster' }}
         env:
-          SUITE: ${{ inputs.suite }}
+          TEST_SUITE: ${{ inputs.suite }}
           ENABLE_METRICS: ${{ inputs.enable_metrics }}
+          METRICS_REGION: ${{ vars.TIMESTREAM_REGION }}
+          CLUSTER_NAME: ${{ steps.generate-cluster-name.outputs.CLUSTER_NAME }}
+          CLUSTER_ENDPOINT: ${{ steps.get-cluster-endpoint.outputs.CLUSTER_ENDPOINT }}
+          INTERRUPTION_QUEUE: ${{ steps.generate-cluster-name.outputs.CLUSTER_NAME }}
+          EKS_ENDPOINT: ${{ inputs.eks_endpoint }}
         run: |
-          aws eks update-kubeconfig --name ${{ steps.generate-cluster-name.outputs.CLUSTER_NAME }}
+          # If we are performing the PrivateCluster test suite, then we should just run the 'Integration' test suite
+          if [[ $TEST_SUITE == 'PrivateCluster' ]]; then
+            SUITE="Integration"
+          fi
+
+          if [[ -z $EKS_ENDPOINT ]]; then
+            aws eks update-kubeconfig --name $CLUSTER_NAME
+          else
+            aws eks update-kubeconfig --name $CLUSTER_NAME --endpoint $EKS_ENDPOINT
+          fi
+
           # Clean up the cluster before running all tests
           kubectl delete nodepool --all
           kubectl delete ec2nodeclass --all
           kubectl delete deployment --all
 
-          TEST_SUITE="$SUITE" ENABLE_METRICS=$ENABLE_METRICS METRICS_REGION=${{ vars.TIMESTREAM_REGION }} GIT_REF="$(git rev-parse HEAD)" \
-            CLUSTER_NAME="${{ steps.generate-cluster-name.outputs.CLUSTER_NAME }}" CLUSTER_ENDPOINT="$(aws eks describe-cluster --name ${{ steps.generate-cluster-name.outputs.CLUSTER_NAME }} --query "cluster.endpoint" --output text)" \
-            INTERRUPTION_QUEUE="${{ steps.generate-cluster-name.outputs.CLUSTER_NAME }}" make e2etests
+          GIT_REF="$(git rev-parse HEAD)" make e2etests
       - name: notify slack of success or failure
         uses: ./.github/actions/e2e/slack/notify
         if: (success() || failure()) && github.event_name != 'workflow_run' && inputs.workflow_trigger != 'versionCompatibility'

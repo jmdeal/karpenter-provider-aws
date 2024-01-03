@@ -18,6 +18,18 @@ on:
         required: true
       parallelism:
         type: number
+        required: false
+        default: 100
+      cluster_name:
+        type: string
+        required: false
+      eks_endpoint:
+        type: string
+        required: false
+      redact_cluster_details:
+        type: boolean
+        required: false
+        default: false
     secrets:
       SLACK_WEBHOOK_URL:
         required: true
@@ -45,18 +57,52 @@ on:
         type: boolean
         required: true
         default: true
+      git_ref:
+        type: string
+        required: true
+      parallelism:
+        type: number
+        required: false
+        default: 100
+      cluster_name:
+        type: string
+        required: false
+      eks_endpoint:
+        type: string
+        required: false
+      redact_cluster_details:
+        type: boolean
+        required: false
+        default: false
 # All jobs will run under the following conditions:
 #   1. Upstream Karpenter repo triggered the job by schedule, push, or dispatch
 #   2. Upstream Karpenter repo triggered the job by workflow_run, which requires maintainer check to succeed
 #   3. Downstream fork triggered the job through dispatch and has set 'ENABLE_E2E' in repo environment variables
 jobs:
+  redact-cluster-details:
+    runs-on: ubuntu-latest
+    steps:
+      - if: inputs.redact_cluster_details == true
+        run: |
+          # Using add-mask directly on the GHA input results in the secret being printed to logs
+          # https://github.com/actions/runner/issues/643
+          CLUSTER_NAME="$(jq -r '.inputs.cluster_name' $GITHUB_EVENT_PATH)"
+          EKS_ENDPOINT="$(jq -r '.inputs.eks_endpoint' $GITHUB_EVENT_PATH)"
+          details=("$CLUSTER_NAME" "$EKS_ENDPOINT")
+          for detail in ${details[@]}; do
+            if [[ ! -z $detail ]]; then
+              echo "::add-mask::$detail"
+            fi
+          done
   e2e:
+    needs: redact-cluster-details
     permissions:
       id-token: write # aws-actions/configure-aws-credentials@v4.0.1
       statuses: write # ./.github/actions/commit-status/start
     strategy:
       fail-fast: false
-      max-parallel: ${{ inputs.parallelism || 100 }}
+      # Need to unmarshal input since workflow_dispatch provides all inputs as strings, regardless of real type
+      max-parallel: ${{ inputs.cluster_name == '' && fromJson(inputs.parallelism) || 1 }}
       matrix:
         suite:
           - name: IPv6
@@ -94,12 +140,18 @@ jobs:
       k8s_version: ${{ inputs.k8s_version }}
       cleanup: ${{ inputs.cleanup }}
       workflow_trigger: ${{ inputs.workflow_trigger }}
+      cluster_name: ${{ inputs.cluster_name }}
+      eks_endpoint: ${{ inputs.eks_endpoint }}
+      redact_cluster_details: ${{ inputs.redact_cluster_details }}
     secrets:
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
   e2e-upgrade:
+    needs: redact-cluster-details
     permissions:
       id-token: write # aws-actions/configure-aws-credentials@v4.0.1
       statuses: write # ./.github/actions/commit-status/start
+    # Don't run if targeting a specific cluster since parallelism is limited to 1
+    if: inputs.cluster_name == ''
     uses: ./.github/workflows/e2e-upgrade.yaml
     with:
       from_git_ref: b3076dca62a81caae2d3c4af4fd378c83a901c48
