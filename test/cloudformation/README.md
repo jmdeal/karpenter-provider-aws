@@ -35,3 +35,14 @@ aws cloudformation deploy --stack-name GithubActionsIAM \
 ```
 
 _Note: If deploying this cloudformation stack to reference back to your own repository, ensure you replace the `Repository` parameter override with your fully-qualified repository name in the format `<organization>/<repo-name>`. This parameter (along with the `Branches` parameter) tells the OIDC provider that is deployed for the action to reach out to, which branches and repos it should allow tokens to come from._
+
+### Deploying Snapshot IAM Policies and ECR Repositories
+
+```console
+aws cloudformation deploy --stack-name GithubActionsSnapshotRepos \
+    --template-file snapshot_cloudformation.yaml \
+    --parameter-overrides "Repository=aws/karpenter-provider-aws" \
+    --capabilities CAPABILITY_NAMED_IAM
+```
+
+_Note: If deploying this cloudformation stack to reference back to your own repository, ensure you replace the `Repository` parameter override with your fully-qualified repository name in the format `<organization>/<repo-name>`. This parameter tells the OIDC provider that is deployed for the action to reach out to which repos it should allow tokens to come from._

@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Repositories and IAM roles / policies for snapshot images
+Parameters:
+  Repository:
+    Type: String
+    Description: "Fully qualified repository name, formatted as <organization>/<repository-name>"
+Mappings:
+  RepoPolicies:
+    LifecyclePolicyText:
+      Value: |
+        {
+          "rules": [
+            {
+              "rulePriority": 1,
+              "description": "Cleans images older than 90 days",
+              "selection": {
+                "tagStatus": "any",
+                "countType": "sinceImagePushed",
+                "countUnit": "days",
+                "countNumber": 90
+              },
+              "action": {
+                "type": "expire"
+              }
+            }
+          ]
+        }
+Resources:
+  # IAM Policies / Roles
+  SnapshotPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: GithubSnapshotPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - ecr:PutImage
+              - ecr:InitiateLayerUpload
+              - ecr:UploadLayerPart
+              - ecr:CompleteLayerUpload
+              - ecr:BatchCheckLayerAvailability
+              - ecr:DescribeImages
+              - ecr:ListImages
+              - ecr:BatchGetImage
+              - ecr:GetDownloadUrlForLayer
+              - ecr:GetAuthorizationToken
+              - ecr:BatchImportUpstreamImage
+              - ecr:ReplicateImage
+            Resource:
+              - !Sub "arn:aws:ecr:*:${AWS::AccountId}:repository/karpenter/snapshot/*"
+          - Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+            Resource:
+              - "*"
+  SnapshotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GithubSnapshotRole
+      ManagedPolicyArns:
+        - !Ref SnapshotPolicy
+      MaxSessionDuration: 21600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${Repository}:*"
+
+  # ECR Repositories
+  ControllerRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: 'karpenter/snapshot/controller'
+      LifecyclePolicy:
+        LifecyclePolicyText: !FindInMap [RepoPolicies, LifecyclePolicyText, Value]
+      ImageTagMutability: IMMUTABLE
+  ChartRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: 'karpenter/snapshot/karpenter'
+      LifecyclePolicy:
+        LifecyclePolicyText: !FindInMap [RepoPolicies, LifecyclePolicyText, Value]
+      ImageTagMutability: IMMUTABLE
+  CRDRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: 'karpenter/snapshot/karpenter-crd'
+      LifecyclePolicy:
+        LifecyclePolicyText: !FindInMap [RepoPolicies, LifecyclePolicyText, Value]
+      ImageTagMutability: IMMUTABLE
