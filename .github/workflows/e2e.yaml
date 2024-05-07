@@ -158,6 +158,7 @@ jobs:
           role: ${{ vars.CI_ROLE_NAME }}
           region: ${{ inputs.region }}
           cluster_name: ${{ steps.generate-cluster-name.outputs.CLUSTER_NAME }}
+          eks_endpoint: ${{ inputs.eks_endpoint }}
           k8s_version: ${{ inputs.k8s_version }}
           eksctl_version: v0.180.0
           ip_family: ${{ contains(inputs.suite, 'IPv6') && 'IPv6' || 'IPv4' }} # Set the value to IPv6 if IPv6 suite, else IPv4

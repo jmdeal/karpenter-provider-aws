@@ -19,6 +19,9 @@ inputs:
   cluster_name:
     description: 'Name of the cluster to be launched by eksctl'
     required: true
+  eks_endpoint:
+    description: 'The EKS endpoint'
+    required: false
   k8s_version:
     description: 'Version of Kubernetes to use for the launched cluster'
     default: "1.30"
@@ -55,6 +58,7 @@ runs:
       ECR_REGION: ${{ inputs.ecr_region }}
       ACCOUNT_ID: ${{ inputs.account_id }}
       CLUSTER_NAME: ${{ inputs.cluster_name }}
+      EKS_ENDPOINT: ${{ inputs.eks_endpoint }}
       PRIVATE_CLUSTER: ${{ inputs.private_cluster }}
     run: |
       ./test/hack/e2e_scripts/install_karpenter.sh

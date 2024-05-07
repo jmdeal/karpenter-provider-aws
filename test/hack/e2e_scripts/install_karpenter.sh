@@ -18,6 +18,7 @@ helm upgrade --install karpenter "${CHART}" \
   --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"="arn:aws:iam::$ACCOUNT_ID:role/karpenter-irsa-$CLUSTER_NAME" \
   $ADDITIONAL_FLAGS \
   --set settings.clusterName="$CLUSTER_NAME" \
+  --set settings.eksEndpoint="$EKS_ENDPOINT"
   --set settings.interruptionQueue="$CLUSTER_NAME" \
   --set settings.featureGates.spotToSpotConsolidation=true \
   --set controller.resources.requests.cpu=5 \
