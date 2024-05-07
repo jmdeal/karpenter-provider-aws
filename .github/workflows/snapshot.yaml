@@ -26,6 +26,6 @@ jobs:
           aws-region: ${{ vars.SNAPSHOT_REGION }}
       - name: create snapshot
         env:
-          SNAPSHOT_ECR_ACCOUNT_ID: ${{ vars.SNAPSHOT_ACCOUNT_ID }}
-          SNAPSHOT_ECR_REGION: ${{ vars.SNAPSHOT_REGION }}
+          SNAPSHOT_ACCOUNT_ID: ${{ vars.SNAPSHOT_ACCOUNT_ID }}
+          SNAPSHOT_REGION: ${{ vars.SNAPSHOT_REGION }}
         run: make snapshot

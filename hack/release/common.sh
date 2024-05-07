@@ -4,8 +4,8 @@ set -euo pipefail
 ECR_GALLERY_NAME="karpenter"
 RELEASE_REPO_ECR="${RELEASE_REPO_ECR:-public.ecr.aws/${ECR_GALLERY_NAME}/}"
 
-SNAPSHOT_ECR_ACCOUNT_ID=${SNAPSHOT_ECR_ACCOUNT_ID:-02119463062}
-SNAPSHOT_ECR_REGION=${SNAPSHOT_ECR_REGION:-us-east-1}
+SNAPSHOT_ECR_ACCOUNT_ID=${SNAPSHOT_ACCOUNT_ID:-02119463062}
+SNAPSHOT_ECR_REGION=${SNAPSHOT_REGION:-us-east-1}
 SNAPSHOT_ECR="${SNAPSHOT_ECR_ACCOUNT_ID}.dkr.ecr.${SNAPSHOT_ECR_REGION}.amazonaws.com"
 SNAPSHOT_REPO_ECR=${SNAPSHOT_REPO_ECR:-${SNAPSHOT_ECR}/karpenter/snapshot/}
 
@@ -24,6 +24,7 @@ Commit: ${commit_sha}
 Helm Chart Version ${helm_chart_version}"
 
   authenticatePrivateRepo
+  printf "building snapshot{repo: %s, version: %s, chart-version: %s, sha: %s}" "${SNAPSHOT_REPO_ECR}" "${version}" "${helm_chart_version}" "${commit_sha}"
   build "${SNAPSHOT_REPO_ECR}" "${version}" "${helm_chart_version}" "${commit_sha}"
 }
 
@@ -48,7 +49,7 @@ authenticate() {
 }
 
 authenticatePrivateRepo() {
-  aws ecr get-login-password --region ${SNAPSHOT_ECR_REGION} | docker login --username AWS --password-stdin "${SNAPSHOT_ECR}"
+  aws ecr get-login-password --region "${SNAPSHOT_ECR_REGION}" | docker login --username AWS --password-stdin "${SNAPSHOT_ECR}"
 }
 
 build() {
