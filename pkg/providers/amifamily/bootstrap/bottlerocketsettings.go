@@ -15,7 +15,10 @@ limitations under the License.
 package bootstrap
 
 import (
+	"fmt"
+
 	"github.com/pelletier/go-toml/v2"
+	"github.com/samber/lo"
 )
 
 func NewBottlerocketConfig(userdata *string) (*BottlerocketConfig, error) {
@@ -47,7 +50,8 @@ type BottlerocketKubernetes struct {
 	CloudProvider                      *string                                   `toml:"cloud-provider"`
 	ClusterCertificate                 *string                                   `toml:"cluster-certificate"`
 	ClusterName                        *string                                   `toml:"cluster-name"`
-	ClusterDNSIP                       *string                                   `toml:"cluster-dns-ip,omitempty"`
+	// ClusterDNSIP may a string or a []string (grumble grumble rust grumble grumble)
+	ClusterDNSIP                       interface{}                               `toml:"cluster-dns-ip,omitempty"`
 	CredentialProviders                map[string]BottlerocketCredentialProvider `toml:"credential-providers,omitempty"`
 	NodeLabels                         map[string]string                         `toml:"node-labels,omitempty"`
 	NodeTaints                         map[string][]string                       `toml:"node-taints,omitempty"`
@@ -112,4 +116,25 @@ func (c *BottlerocketConfig) MarshalTOML() ([]byte, error) {
 	}
 	c.SettingsRaw["kubernetes"] = c.Settings.Kubernetes
 	return toml.Marshal(c)
+}
+
+func (c *BottlerocketConfig) ParseClusterDNSIP() ([]string, error) {
+	raw := c.Settings.Kubernetes.ClusterDNSIP
+	if raw == nil {
+		return nil, nil
+	}
+	rawValues := []interface{}{}
+	if _, ok := raw.(string); ok {
+		rawValues = append(rawValues, raw)
+	} else if s, ok := raw.([]interface{}); ok {
+		rawValues = append(rawValues, s...)
+	}
+	parsedValues := lo.FilterMap(rawValues, func(value interface{}, _ int) (string, bool) {
+		parsed, ok := value.(string)
+		return parsed, ok
+	})
+	if len(parsedValues) != len(rawValues) {
+		return nil, fmt.Errorf(`parsing "settings.kubernetes.cluster-dns-ip"`)
+	}
+	return parsedValues, nil
 }

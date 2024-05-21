@@ -1499,7 +1499,7 @@ var _ = Describe("LaunchTemplate Provider", func() {
 					config := &bootstrap.BottlerocketConfig{}
 					Expect(config.UnmarshalTOML(userData)).To(Succeed())
 					Expect(config.Settings.Kubernetes.ClusterDNSIP).ToNot(BeNil())
-					Expect(*config.Settings.Kubernetes.ClusterDNSIP).To(Equal("10.0.100.10"))
+					Expect(*config.Settings.Kubernetes.ClusterDNSIP.(*string)).To(Equal("10.0.100.10"))
 				})
 			})
 			It("should pass CPUCFSQuota when specified", func() {

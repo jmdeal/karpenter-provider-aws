@@ -55,7 +55,12 @@ func (b Bottlerocket) Script() (string, error) {
 
 	if b.KubeletConfig != nil {
 		if len(b.KubeletConfig.ClusterDNS) > 0 {
-			s.Settings.Kubernetes.ClusterDNSIP = &b.KubeletConfig.ClusterDNS[0]
+			// Merge NodePool DNS entries with those provided in custom user data, if any
+			dnsValues, err := s.ParseClusterDNSIP()
+			if err != nil {
+				return "", fmt.Errorf("decoding userData, %w", err)
+			}
+			s.Settings.Kubernetes.ClusterDNSIP = lo.Uniq(append(dnsValues, b.KubeletConfig.ClusterDNS...))
 		}
 		if b.KubeletConfig.SystemReserved != nil {
 			s.Settings.Kubernetes.SystemReserved = b.KubeletConfig.SystemReserved
