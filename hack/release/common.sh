@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ECR_GALLERY_NAME="karpenter"
+ECR_GALLERY_NAME="x9x1x9p5"
 RELEASE_REPO_ECR="${RELEASE_REPO_ECR:-public.ecr.aws/${ECR_GALLERY_NAME}/}"
 
 SNAPSHOT_ECR="021119463062.dkr.ecr.us-east-1.amazonaws.com"
