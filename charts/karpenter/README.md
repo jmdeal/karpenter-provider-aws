@@ -2,7 +2,7 @@
 
 A Helm chart for Karpenter, an open-source node provisioning project built for Kubernetes.
 
-![Version: 0.37.0](https://img.shields.io/badge/Version-0.37.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.37.0](https://img.shields.io/badge/AppVersion-0.37.0-informational?style=flat-square)
+![Version: 1.0.0](https://img.shields.io/badge/Version-1.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.0.0](https://img.shields.io/badge/AppVersion-1.0.0-informational?style=flat-square)
 
 ## Documentation
 
@@ -15,7 +15,7 @@ You can follow the detailed installation instruction in the [documentation](http
 ```bash
 helm upgrade --install --namespace karpenter --create-namespace \
   karpenter oci://public.ecr.aws/karpenter/karpenter \
-  --version 0.37.0 \
+  --version 1.0.0 \
   --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${KARPENTER_IAM_ROLE_ARN}" \
   --set settings.clusterName=${CLUSTER_NAME} \
   --set settings.interruptionQueue=${CLUSTER_NAME} \
@@ -27,13 +27,13 @@ helm upgrade --install --namespace karpenter --create-namespace \
 As the OCI Helm chart is signed by [Cosign](https://github.com/sigstore/cosign) as part of the release process you can verify the chart before installing it by running the following command.
 
 ```shell
-cosign verify public.ecr.aws/karpenter/karpenter:0.37.0 \
+cosign verify public.ecr.aws/karpenter/karpenter:1.0.0 \
   --certificate-oidc-issuer=https://token.actions.githubusercontent.com \
   --certificate-identity-regexp='https://github\.com/aws/karpenter-provider-aws/\.github/workflows/release\.yaml@.+' \
   --certificate-github-workflow-repository=aws/karpenter-provider-aws \
   --certificate-github-workflow-name=Release \
-  --certificate-github-workflow-ref=refs/tags/v0.37.0 \
-  --annotations version=0.37.0
+  --certificate-github-workflow-ref=refs/tags/v1.0.0 \
+  --annotations version=1.0.0
 ```
 
 ## Values
@@ -48,10 +48,10 @@ cosign verify public.ecr.aws/karpenter/karpenter:0.37.0 \
 | controller.envFrom | list | `[]` |  |
 | controller.extraVolumeMounts | list | `[]` | Additional volumeMounts for the controller pod. |
 | controller.healthProbe.port | int | `8081` | The container port to use for http health probe. |
-| controller.image.digest | string | `"sha256:157f478f5db1fe999f5e2d27badcc742bf51cc470508b3cebe78224d0947674f"` | SHA256 digest of the controller image. |
-| controller.image.repository | string | `"public.ecr.aws/karpenter/controller"` | Repository path to the controller image. |
-| controller.image.tag | string | `"0.37.0"` | Tag of the controller image. |
-| controller.metrics.port | int | `8000` | The container port to use for metrics. |
+| controller.image.digest | string | `"sha256:f7fecc1f831e9d0c0e9f2b261720d3e901b3d44ba35cd4bb5d6202889338422e"` | SHA256 digest of the controller image. |
+| controller.image.repository | string | `"public.ecr.aws/x9x1x9p5/controller"` | Repository path to the controller image. |
+| controller.image.tag | string | `"1.0.0"` | Tag of the controller image. |
+| controller.metrics.port | int | `8080` | The container port to use for metrics. |
 | controller.resources | object | `{}` | Resources for the controller pod. |
 | controller.sidecarContainer | list | `[]` | Additional sidecarContainer config |
 | controller.sidecarVolumeMounts | list | `[]` | Additional volumeMounts for the sidecar - this will be added to the volume mounts on top of extraVolumeMounts |
@@ -62,16 +62,9 @@ cosign verify public.ecr.aws/karpenter/karpenter:0.37.0 \
 | hostNetwork | bool | `false` | Bind the pod to the host network. This is required when using a custom CNI. |
 | imagePullPolicy | string | `"IfNotPresent"` | Image pull policy for Docker images. |
 | imagePullSecrets | list | `[]` | Image pull secrets for Docker images. |
-| logConfig | object | `{"enabled":false,"errorOutputPaths":["stderr"],"logEncoding":"json","logLevel":{"controller":"info","global":"info","webhook":"error"},"outputPaths":["stdout"]}` | Log configuration (Deprecated: Logging configuration will be dropped by v1, use logLevel instead) |
-| logConfig.enabled | bool | `false` | Whether to enable provisioning and mounting the log ConfigMap |
-| logConfig.errorOutputPaths | list | `["stderr"]` | Log errorOutputPaths - defaults to stderr only |
-| logConfig.logEncoding | string | `"json"` | Log encoding - defaults to json - must be one of 'json', 'console' |
-| logConfig.logLevel | object | `{"controller":"info","global":"info","webhook":"error"}` | Component-based log configuration |
-| logConfig.logLevel.controller | string | `"info"` | Controller log level, defaults to 'info' |
-| logConfig.logLevel.global | string | `"info"` | Global log level, defaults to 'info' |
-| logConfig.logLevel.webhook | string | `"error"` | Error log level, defaults to 'error' |
-| logConfig.outputPaths | list | `["stdout"]` | Log outputPaths - defaults to stdout only |
+| logErrorOutputPaths | list | `["stderr"]` | Log errorOutputPaths - defaults to stderr only |
 | logLevel | string | `"info"` | Global log level, defaults to 'info' |
+| logOutputPaths | list | `["stdout"]` | Log outputPaths - defaults to stdout only |
 | nameOverride | string | `""` | Overrides the chart's name. |
 | nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node selectors to schedule the pod to nodes with labels. |
 | podAnnotations | object | `{}` | Additional annotations for the pod. |
@@ -87,7 +80,7 @@ cosign verify public.ecr.aws/karpenter/karpenter:0.37.0 \
 | serviceAccount.name | string | `""` | The name of the ServiceAccount to use. If not set and create is true, a name is generated using the fullname template. |
 | serviceMonitor.additionalLabels | object | `{}` | Additional labels for the ServiceMonitor. |
 | serviceMonitor.enabled | bool | `false` | Specifies whether a ServiceMonitor should be created. |
-| serviceMonitor.endpointConfig | object | `{}` | Configuration on `http-metrics` endpoint for the ServiceMonitor.  Not to be used to add additional endpoints.  See the Prometheus operator documentation for configurable fields https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#endpoint |
+| serviceMonitor.endpointConfig | object | `{}` | Configuration on `http-metrics` endpoint for the ServiceMonitor. Not to be used to add additional endpoints. See the Prometheus operator documentation for configurable fields https://github.com/prometheus-operator/prometheus-operator/blob/main/Documentation/api.md#endpoint |
 | settings | object | `{"batchIdleDuration":"1s","batchMaxDuration":"10s","clusterCABundle":"","clusterEndpoint":"","clusterName":"","featureGates":{"spotToSpotConsolidation":false},"interruptionQueue":"","isolatedVPC":false,"reservedENIs":"0","vmMemoryOverheadPercent":0.075}` | Global Settings to configure Karpenter |
 | settings.batchIdleDuration | string | `"1s"` | The maximum amount of time with no new ending pods that if exceeded ends the current batching window. If pods arrive faster than this time, the batching window will be extended up to the maxDuration. If they arrive slower, the pods will be batched separately. |
 | settings.batchMaxDuration | string | `"10s"` | The maximum length of a batch window. The longer this is, the more pods we can consider for provisioning at one time which usually results in fewer but larger nodes. |
@@ -104,6 +97,7 @@ cosign verify public.ecr.aws/karpenter/karpenter:0.37.0 \
 | terminationGracePeriodSeconds | string | `nil` | Override the default termination grace period for the pod. |
 | tolerations | list | `[{"key":"CriticalAddonsOnly","operator":"Exists"}]` | Tolerations to allow the pod to be scheduled to nodes with taints. |
 | topologySpreadConstraints | list | `[{"maxSkew":1,"topologyKey":"topology.kubernetes.io/zone","whenUnsatisfiable":"DoNotSchedule"}]` | Topology spread constraints to increase the controller resilience by distributing pods across the cluster zones. If an explicit label selector is not provided one will be created from the pod selector labels. |
+| webhook.enabled | bool | `true` | Whether to enable the webhooks and webhook permissions. |
 | webhook.metrics.port | int | `8001` | The container port to use for webhook metrics. |
 | webhook.port | int | `8443` | The container port to use for the webhook. |
 
