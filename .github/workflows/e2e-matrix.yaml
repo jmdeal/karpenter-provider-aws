@@ -105,8 +105,6 @@ jobs:
       max-parallel: ${{ inputs.cluster_name == '' && fromJson(inputs.parallelism) || 1 }}
       matrix:
         suite:
-          - name: IPv6
-            region: ${{ inputs.region }}
           - name: AMI
             region: ${{ inputs.region }}
           - name: Scheduling
@@ -129,9 +127,12 @@ jobs:
             region: ${{ inputs.region }}
           - name: Termination
             region: ${{ inputs.region }}
-          - name: LocalZone
-            # LAX is the only local zone available in the CI account, therefore only use us-west-2
-            region: us-west-2
+          # Skip ipv6 and local zone tests for private cluster
+          # - name: IPv6
+          #   region: ${{ inputs.region }}
+          # - name: LocalZone
+          #   # LAX is the only local zone available in the CI account, therefore only use us-west-2
+          #   region: us-west-2
     uses: ./.github/workflows/e2e.yaml
     with:
       suite: ${{ matrix.suite.name }}
