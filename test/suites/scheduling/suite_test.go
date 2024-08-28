@@ -78,6 +78,14 @@ var _ = Describe("Scheduling", Ordered, ContinueOnFailure, func() {
 					Operator: corev1.NodeSelectorOpExists,
 				},
 			},
+			// Exclude super-small instance types like t3.nano's which fail to register
+			karpv1.NodeSelectorRequirementWithMinValues{
+				NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+					Key: v1.LabelInstanceCPU,
+					Operator: corev1.NodeSelectorOpGt,
+					Values: []string{"1"},
+				},
+			},
 		)
 	})
 	BeforeAll(func() {

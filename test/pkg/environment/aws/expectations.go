@@ -33,6 +33,7 @@ import (
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/version"
 
 	coretest "sigs.k8s.io/karpenter/pkg/test"
 
@@ -334,8 +335,10 @@ func (env *Environment) K8sVersion() string {
 func (env *Environment) K8sVersionWithOffset(offset int) string {
 	GinkgoHelper()
 
-	serverVersion, err := env.KubeClient.Discovery().ServerVersion()
-	Expect(err).To(BeNil())
+	serverVersion := &version.Info{
+		Major: "1",
+		Minor: "30",
+	}
 	minorVersion, err := strconv.Atoi(strings.TrimSuffix(serverVersion.Minor, "+"))
 	Expect(err).To(BeNil())
 	// Choose a minor version one lesser than the server's minor version. This ensures that we choose an AMI for
