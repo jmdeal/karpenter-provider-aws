@@ -23,3 +23,5 @@ jobs:
         with:
           name: artifacts
           path: /tmp/artifacts
+      - run: |
+          echo "test-test"
